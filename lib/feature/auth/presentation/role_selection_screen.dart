@@ -49,25 +49,14 @@ class RoleSelectionScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _selectRole(BuildContext context, String role) async {
+  void _selectRole(BuildContext context, String role) {
     final viewModel = Provider.of<AuthViewModel>(context, listen: false);
+    viewModel.setUserRole(role);
 
-    final success = await viewModel.setUserRole(role);
-
-    if (!context.mounted) return;
-
-    if (success) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not save your role. Please try again.'),
-        ),
-      );
-    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
   }
 }
 

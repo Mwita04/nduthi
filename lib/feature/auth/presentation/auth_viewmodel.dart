@@ -64,44 +64,31 @@ class AuthViewModel extends ChangeNotifier {
         'email': email.trim(),
         'role': null,
         'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      });
 
       _userName = fullName.trim();
-      _errorMessage = null;
       return true;
     } on FirebaseAuthException catch (e) {
       _errorMessage = _mapAuthError(e.code);
-      return false;
-    } catch (e) {
-      _errorMessage = 'We could not create your account right now.';
-      debugPrint('Error creating account: $e');
       return false;
     } finally {
       _setLoading(false);
     }
   }
 
-  Future<bool> setUserRole(String role) async {
+  Future<void> setUserRole(String role) async {
+    _userRole = role;
+    notifyListeners();
+
     final user = _auth.currentUser;
-    if (user == null) {
-      _errorMessage = 'Please sign in again before choosing a role.';
-      notifyListeners();
-      return false;
-    }
+    if (user == null) return;
 
     try {
       await _firestore.collection('users').doc(user.uid).set({
         'role': role,
       }, SetOptions(merge: true));
-      _userRole = role;
-      _errorMessage = null;
-      notifyListeners();
-      return true;
     } catch (e) {
-      _errorMessage = 'Unable to save your role right now. Please try again.';
       debugPrint('Error saving role: $e');
-      notifyListeners();
-      return false;
     }
   }
 
