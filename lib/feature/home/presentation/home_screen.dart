@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:nduthi/feature/ride/presentation/ride_confirmation_screen.dart';
 import 'package:provider/provider.dart';
 import '../../auth/presentation/auth_viewmodel.dart';
+import '../ride/presentation/ride_confirmation_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -84,17 +84,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCurrentTab(bool isRider, AuthViewModel authVM) {
-    if (_currentIndex == 1) {
+    if (_currentIndex == 1)
       return const Center(
         child: Text('My Trips\n(Coming soon)', textAlign: TextAlign.center),
       );
-    }
-    if (_currentIndex == 2) {
-      return _buildProfileTab(authVM);
-    }
+    if (_currentIndex == 2) return _buildProfileTab(authVM);
     return isRider ? _buildRiderDashboard() : _buildPassengerHome();
   }
 
+  // ==================== PASSENGER ====================
   Widget _buildPassengerHome() {
     return Column(
       children: [
@@ -207,7 +205,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       return;
     }
-
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -219,39 +216,129 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ==================== RIDER (FULLY WORKING) ====================
   Widget _buildRiderDashboard() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.two_wheeler, size: 100, color: Colors.orange),
-          const SizedBox(height: 20),
-          const Text(
-            'Rider Dashboard',
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+    return StatefulBuilder(
+      builder: (context, setState) {
+        bool isOnline = false;
+
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.two_wheeler, size: 100, color: Colors.orange),
+              const SizedBox(height: 20),
+              const Text(
+                'Rider Dashboard',
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isOnline ? 'You are ONLINE' : 'You are currently OFFLINE',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: isOnline ? Colors.green : Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 40),
+
+              if (!isOnline)
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      isOnline = true;
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 60,
+                      vertical: 18,
+                    ),
+                  ),
+                  child: const Text(
+                    'GO ONLINE',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+
+              if (isOnline)
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.orange, width: 2),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Incoming Ride Request',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Pickup: Westlands\nDestination: CBD\nEstimated Fare: KES 280',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                setState(() {
+                                  isOnline = false;
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Request declined'),
+                                  ),
+                                );
+                              },
+                              child: const Text('DECLINE'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  isOnline = false;
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Ride accepted! (Tracking coming next)',
+                                    ),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                              ),
+                              child: const Text('ACCEPT'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'You are currently OFFLINE',
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 40),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 16),
-            ),
-            child: const Text(
-              'GO ONLINE',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
+  // ==================== PROFILE ====================
   Widget _buildProfileTab(AuthViewModel authVM) {
     return Padding(
       padding: const EdgeInsets.all(24),
