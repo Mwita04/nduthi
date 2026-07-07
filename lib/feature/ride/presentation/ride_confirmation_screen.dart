@@ -21,7 +21,6 @@ class RideConfirmationScreen extends StatelessWidget {
           children: [
             const SizedBox(height: 20),
 
-            // Trip Summary Card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -85,7 +84,6 @@ class RideConfirmationScreen extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // Rider Info (Fake for now)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -134,7 +132,6 @@ class RideConfirmationScreen extends StatelessWidget {
 
             const Spacer(),
 
-            // Action Buttons
             ElevatedButton(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -142,7 +139,6 @@ class RideConfirmationScreen extends StatelessWidget {
                     content: Text('Ride confirmed! Rider is on the way.'),
                   ),
                 );
-                // TODO: Later navigate to live tracking screen
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
