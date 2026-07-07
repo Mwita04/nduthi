@@ -1,18 +1,19 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:provider/provider.dart';
-import '../auth/presentation/auth_viewmodel.dart';
-import '../ride/presentation/ride_confirmation_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/presentation/auth_provider.dart';
+import '../../ride/presentation/ride_confirmation_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
   LatLng _currentPosition = const LatLng(-1.2921, 36.8219);
   bool _isLoadingLocation = true;
@@ -28,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _determinePosition() async {
+    if (!mounted) return;
     setState(() {
       _isLoadingLocation = true;
       _locationError = '';
@@ -36,7 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        setState(() => _locationError = 'Please enable location services.');
+        if (mounted) setState(() => _locationError = 'Please enable location services.');
         return;
       }
 
@@ -45,30 +47,34 @@ class _HomeScreenState extends State<HomeScreen> {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        setState(() => _locationError = 'Location permission is required.');
+        if (mounted) setState(() => _locationError = 'Location permission is required.');
         return;
       }
 
       Position position = await Geolocator.getCurrentPosition();
-      setState(() {
-        _currentPosition = LatLng(position.latitude, position.longitude);
-        _isLoadingLocation = false;
-      });
+      if (mounted) {
+        setState(() {
+          _currentPosition = LatLng(position.latitude, position.longitude);
+          _isLoadingLocation = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _locationError = 'Failed to get location.';
-        _isLoadingLocation = false;
-      });
+      if (mounted) {
+        setState(() {
+          _locationError = 'Failed to get location.';
+          _isLoadingLocation = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authVM = Provider.of<AuthViewModel>(context);
-    final isRider = authVM.userRole == 'rider';
+    final userRole = ref.watch(userRoleProvider);
+    final isDriver = userRole == 'driver';
 
     return Scaffold(
-      body: _buildCurrentTab(isRider, authVM),
+      body: _buildCurrentTab(isDriver),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -82,10 +88,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCurrentTab(bool isRider, AuthViewModel authVM) {
+  Widget _buildCurrentTab(bool isDriver) {
     if (_currentIndex == 1) return const Center(child: Text('My Trips\n(Coming soon)', textAlign: TextAlign.center));
-    if (_currentIndex == 2) return _buildProfileTab(authVM);
-    return isRider ? _buildRiderDashboard() : _buildPassengerHome();
+    if (_currentIndex == 2) return _buildProfileTab();
+    return isDriver ? _buildDriverDashboard() : _buildPassengerHome();
   }
 
   // ==================== PASSENGER ====================
@@ -115,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, -4))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, -4))],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -136,11 +142,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ElevatedButton(
             onPressed: _onFindRiderPressed,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
+              backgroundColor: Colors.green,
               padding: const EdgeInsets.symmetric(vertical: 18),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            child: const Text('FIND A RIDER', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: const Text('FIND A NDUTHI', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
           ),
         ],
       ),
@@ -173,10 +179,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ==================== RIDER ====================
-  Widget _buildRiderDashboard() {
+  // ==================== DRIVER ====================
+  Widget _buildDriverDashboard() {
     return StatefulBuilder(
-      builder: (context, setState) {
+      builder: (context, setDashboardState) {
         bool isOnline = false;
 
         return Padding(
@@ -184,9 +190,9 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.two_wheeler, size: 100, color: Colors.orange),
+              const Icon(Icons.two_wheeler, size: 100, color: Colors.green),
               const SizedBox(height: 20),
-              const Text('Rider Dashboard', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+              const Text('Driver Dashboard', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Text(
                 isOnline ? 'You are ONLINE' : 'You are currently OFFLINE',
@@ -201,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (!isOnline)
                 ElevatedButton(
                   onPressed: () {
-                    setState(() {
+                    setDashboardState(() {
                       isOnline = true;
                     });
                   },
@@ -209,7 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     backgroundColor: Colors.green,
                     padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 18),
                   ),
-                  child: const Text('GO ONLINE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  child: const Text('GO ONLINE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                 ),
 
               if (isOnline)
@@ -218,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.orange, width: 2),
+                    border: Border.all(color: Colors.green, width: 2),
                   ),
                   child: Column(
                     children: [
@@ -235,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Expanded(
                             child: OutlinedButton(
                               onPressed: () {
-                                setState(() {
+                                setDashboardState(() {
                                   isOnline = false;
                                 });
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -249,15 +255,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
-                                setState(() {
+                                setDashboardState(() {
                                   isOnline = false;
                                 });
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Ride accepted! (Tracking coming next)')),
+                                  const SnackBar(content: Text('Ride accepted!')),
                                 );
                               },
                               style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                              child: const Text('ACCEPT'),
+                              child: const Text('ACCEPT', style: TextStyle(color: Colors.white)),
                             ),
                           ),
                         ],
@@ -273,22 +279,24 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ==================== PROFILE ====================
-  Widget _buildProfileTab(AuthViewModel authVM) {
+  Widget _buildProfileTab() {
+    final userRole = ref.read(userRoleProvider);
+    final user = FirebaseAuth.instance.currentUser;
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 40),
-          Text(authVM.userName ?? 'User', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-          Text(authVM.userRole?.toUpperCase() ?? '', style: const TextStyle(color: Colors.grey, fontSize: 16)),
+          Text(user?.email ?? 'User', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          Text(userRole?.toUpperCase() ?? 'NONE', style: const TextStyle(color: Colors.grey, fontSize: 16)),
           const SizedBox(height: 40),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('Logout', style: TextStyle(color: Colors.red, fontSize: 18)),
             onTap: () async {
-              await authVM.signOut();
-              if (mounted) Navigator.pushReplacementNamed(context, '/');
+              await FirebaseAuth.instance.signOut();
             },
           ),
         ],
