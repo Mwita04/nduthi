@@ -1,0 +1,29 @@
+# Flutter
+**/build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+coverage/
+lib/generated_plugin_registrant.dart
+
+# Firebase - NEVER COMMIT THESE
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+macos/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+
+# IDE & OS
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+key.properties
+*.keystore
+*.jks
