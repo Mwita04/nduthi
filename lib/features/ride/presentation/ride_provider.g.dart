@@ -56,6 +56,22 @@ final activeRideProvider = AutoDisposeStreamProvider<RideModel?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ActiveRideRef = AutoDisposeStreamProviderRef<RideModel?>;
+String _$myPastTripsHash() => r'cc7a4640cb085d822afbfc5cb1c0fe46b64ac6e9';
+
+/// See also [myPastTrips].
+@ProviderFor(myPastTrips)
+final myPastTripsProvider = AutoDisposeStreamProvider<List<RideModel>>.internal(
+  myPastTrips,
+  name: r'myPastTripsProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$myPastTripsHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef MyPastTripsRef = AutoDisposeStreamProviderRef<List<RideModel>>;
 String _$activeRideIdHash() => r'8e3b64b0ed5ee0d07d89cae42e7cb0e943739529';
 
 /// See also [ActiveRideId].

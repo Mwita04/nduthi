@@ -42,4 +42,18 @@ class RideRepository {
             ? RideModel.fromMap(snapshot.data()!, snapshot.id) 
             : null);
   }
+
+  /// Streams a user's past rides (for trips history).
+  Stream<List<RideModel>> getPastRides(String passengerId) {
+    return _firestore
+        .collection('rides')
+        .where('passengerId', isEqualTo: passengerId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => RideModel.fromMap(doc.data(), doc.id))
+          .toList();
+    });
+  }
 }

@@ -1,4 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../../auth/presentation/auth_provider.dart';
 import '../data/ride_repository.dart';
 import '../domain/ride_model.dart';
 
@@ -32,4 +33,11 @@ Stream<RideModel?> activeRide(ActiveRideRef ref) {
   final rideId = ref.watch(activeRideIdProvider);
   if (rideId == null) return Stream.value(null);
   return ref.watch(rideRepositoryProvider).watchRide(rideId);
+}
+
+@riverpod
+Stream<List<RideModel>> myPastTrips(MyPastTripsRef ref) {
+  final user = ref.watch(authStateProvider).value;
+  if (user == null) return Stream.value([]);
+  return ref.watch(rideRepositoryProvider).getPastRides(user.uid);
 }

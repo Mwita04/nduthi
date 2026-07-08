@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'widgets/profile_tab.dart';
 import 'widgets/rider_map_view.dart';
+import 'widgets/trips_tab.dart';
 
 /// The main dashboard for the Nduthi app.
 /// Handles map display, location tracking, and ride request UI for Riders.
@@ -35,7 +36,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildCurrentTab() {
     if (_currentIndex == 1) {
-      return const Center(child: Text('My Trips\n(Coming soon)', textAlign: TextAlign.center));
+      return const TripsTab();
     }
     if (_currentIndex == 2) {
       return const ProfileTab();
