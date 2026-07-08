@@ -15,7 +15,7 @@ class AuthWrapper extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authStateProvider);
     
     return authState.when(
       data: (user) {

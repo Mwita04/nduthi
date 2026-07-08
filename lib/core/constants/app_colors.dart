@@ -9,4 +9,5 @@ class AppColors {
   static const Color error = Colors.red;
   
   static const Color surface = Color(0xFFF5F5F5);
+  static Color? inputFill = Colors.grey[100];
 }

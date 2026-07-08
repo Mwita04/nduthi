@@ -58,7 +58,7 @@ class RideConfirmationScreen extends ConsumerWidget {
 
                 try {
                   final rideId = await ref.read(rideRepositoryProvider).requestRide(ride);
-                  ref.read(activeRideIdProvider.notifier).state = rideId;
+                  ref.read(activeRideIdProvider.notifier).setId(rideId);
                   
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(

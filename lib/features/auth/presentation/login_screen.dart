@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/user_model.dart';
 import 'auth_provider.dart';
+import '../../../core/constants/app_colors.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -38,10 +39,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
         await ref.read(userRepositoryProvider).createUserProfile(newUser);
       }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        String message;
+        switch (e.code) {
+          case 'user-not-found':
+            message = 'No user found for that email.';
+            break;
+          case 'wrong-password':
+            message = 'Wrong password provided.';
+            break;
+          case 'email-already-in-use':
+            message = 'An account already exists for that email.';
+            break;
+          default:
+            message = e.message ?? 'An authentication error occurred.';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(
+            content: Text('An unexpected error occurred: $e'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     } finally {
@@ -58,7 +85,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(Icons.two_wheeler, size: 80, color: Colors.green),
+            const Icon(Icons.two_wheeler, size: 80, color: AppColors.primary),
             const SizedBox(height: 16),
             Text(
               _isLogin ? 'Login to Nduthi' : 'Join Nduthi',
@@ -81,7 +108,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: Colors.green,
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
               ),
               onPressed: _isLoading ? null : _submit,
