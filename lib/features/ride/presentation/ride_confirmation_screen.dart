@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../domain/ride_model.dart';
+import 'ride_provider.dart';
 
-class RideConfirmationScreen extends StatelessWidget {
+class RideConfirmationScreen extends ConsumerWidget {
   final String pickup;
   final String destination;
 
@@ -11,7 +16,7 @@ class RideConfirmationScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Confirm Ride'),
@@ -34,11 +39,40 @@ class RideConfirmationScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Finding a rider near you...')),
+              onPressed: () async {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) return;
+
+                // Create the ride request object
+                final ride = RideModel(
+                  id: '', // Will be set by Firestore
+                  passengerId: user.uid,
+                  pickupAddress: pickup,
+                  destinationAddress: destination,
+                  // Placeholder locations for now (Nairobi center)
+                  pickupLocation: const GeoPoint(-1.286389, 36.817223),
+                  destinationLocation: const GeoPoint(-1.2921, 36.8219),
+                  fare: 250.0,
+                  createdAt: DateTime.now(),
                 );
-                Navigator.pop(context);
+
+                try {
+                  final rideId = await ref.read(rideRepositoryProvider).requestRide(ride);
+                  ref.read(activeRideIdProvider.notifier).state = rideId;
+                  
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Finding a rider near you...')),
+                    );
+                    Navigator.pop(context);
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,

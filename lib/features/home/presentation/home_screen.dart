@@ -4,8 +4,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../ride/presentation/ride_confirmation_screen.dart';
+import '../../ride/presentation/ride_provider.dart';
+import '../../ride/domain/ride_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+/// The main dashboard for the Nduthi app.
+/// Handles map display, location tracking, and ride request UI for Riders.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -18,6 +22,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   LatLng _currentPosition = const LatLng(-1.2921, 36.8219);
   bool _isLoadingLocation = true;
   String _locationError = '';
+  GoogleMapController? _mapController;
 
   final TextEditingController _pickupController = TextEditingController();
   final TextEditingController _destinationController = TextEditingController();
@@ -28,6 +33,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _determinePosition();
   }
 
+  /// Requests location permission and gets the user's current coordinates.
   Future<void> _determinePosition() async {
     if (!mounted) return;
     setState(() {
@@ -57,6 +63,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _currentPosition = LatLng(position.latitude, position.longitude);
           _isLoadingLocation = false;
         });
+        
+        // Move camera to current position if map is ready
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(_currentPosition, 15),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -70,11 +81,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userRole = ref.watch(userRoleProvider);
-    final isDriver = userRole == 'driver';
-
+    // We are focusing exclusively on the Rider side for now.
     return Scaffold(
-      body: _buildCurrentTab(isDriver),
+      body: _buildCurrentTab(),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -88,40 +97,156 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildCurrentTab(bool isDriver) {
+  Widget _buildCurrentTab() {
     if (_currentIndex == 1) return const Center(child: Text('My Trips\n(Coming soon)', textAlign: TextAlign.center));
     if (_currentIndex == 2) return _buildProfileTab();
-    return isDriver ? _buildDriverDashboard() : _buildPassengerHome();
+    return _buildPassengerHome();
   }
 
-  // ==================== PASSENGER ====================
+  // ==================== RIDER HOME ====================
   Widget _buildPassengerHome() {
-    return Column(
+    final activeRide = ref.watch(activeRideProvider).value;
+
+    return Stack(
       children: [
-        Expanded(
-          child: _isLoadingLocation
-              ? const Center(child: CircularProgressIndicator())
-              : _locationError.isNotEmpty
-                  ? Center(child: Text(_locationError, style: const TextStyle(color: Colors.red)))
-                  : GoogleMap(
-                      initialCameraPosition: CameraPosition(target: _currentPosition, zoom: 15),
-                      myLocationEnabled: true,
-                      myLocationButtonEnabled: true,
-                      zoomControlsEnabled: false,
-                    ),
+        // Full screen Map
+        _isLoadingLocation
+            ? const Center(child: CircularProgressIndicator())
+            : _locationError.isNotEmpty
+                ? Center(child: Text(_locationError, style: const TextStyle(color: Colors.red)))
+                : GoogleMap(
+                    onMapCreated: (controller) => _mapController = controller,
+                    initialCameraPosition: CameraPosition(target: _currentPosition, zoom: 15),
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: true,
+                    zoomControlsEnabled: false,
+                    markers: _createMarkers(activeRide),
+                  ),
+        
+        // Overlay UI
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: activeRide != null
+              ? _buildActiveRideCard(activeRide)
+              : _buildPassengerBottomSheet(),
         ),
-        _buildPassengerBottomSheet(),
       ],
     );
   }
 
+  /// Generates markers for the map based on the active ride.
+  Set<Marker> _createMarkers(RideModel? ride) {
+    Set<Marker> markers = {};
+    if (ride != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('pickup'),
+          position: LatLng(ride.pickupLocation.latitude, ride.pickupLocation.longitude),
+          infoWindow: InfoWindow(title: 'Pickup: ${ride.pickupAddress}'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        ),
+      );
+      markers.add(
+        Marker(
+          markerId: const MarkerId('destination'),
+          position: LatLng(ride.destinationLocation.latitude, ride.destinationLocation.longitude),
+          infoWindow: InfoWindow(title: 'Destination: ${ride.destinationAddress}'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+        ),
+      );
+    }
+    return markers;
+  }
+
+  /// UI Card shown when a ride is active (requested or accepted).
+  Widget _buildActiveRideCard(RideModel ride) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -4))],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.two_wheeler, color: Colors.green, size: 32),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ride.status == RideStatus.pending ? 'Finding a Nduthi...' : 'Ride Accepted!',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      ride.status == RideStatus.pending ? 'Wait for a driver to accept' : 'Driver is on the way',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              if (ride.status == RideStatus.pending)
+                const CircularProgressIndicator(strokeWidth: 2)
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildRideDetailsMini(ride),
+          const SizedBox(height: 24),
+          if (ride.status == RideStatus.pending)
+            OutlinedButton(
+              onPressed: () {
+                // For now, just clear the local state.
+                // In a full implementation, this would update the Firestore document status to 'cancelled'.
+                ref.read(activeRideIdProvider.notifier).state = null;
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+                side: const BorderSide(color: Colors.red),
+                minimumSize: const Size(double.infinity, 50),
+              ),
+              child: const Text('CANCEL REQUEST'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRideDetailsMini(RideModel ride) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.my_location, size: 16, color: Colors.green),
+            const SizedBox(width: 8),
+            Expanded(child: Text(ride.pickupAddress, style: const TextStyle(fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Icon(Icons.flag, size: 16, color: Colors.orange),
+            const SizedBox(width: 8),
+            Expanded(child: Text(ride.destinationAddress, style: const TextStyle(fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// The standard "Where to?" sheet for Riders.
   Widget _buildPassengerBottomSheet() {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, -4))],
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -4))],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -176,105 +301,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           destination: _destinationController.text,
         ),
       ),
-    );
-  }
-
-  // ==================== DRIVER ====================
-  Widget _buildDriverDashboard() {
-    return StatefulBuilder(
-      builder: (context, setDashboardState) {
-        bool isOnline = false;
-
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.two_wheeler, size: 100, color: Colors.green),
-              const SizedBox(height: 20),
-              const Text('Driver Dashboard', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Text(
-                isOnline ? 'You are ONLINE' : 'You are currently OFFLINE',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: isOnline ? Colors.green : Colors.grey,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 40),
-
-              if (!isOnline)
-                ElevatedButton(
-                  onPressed: () {
-                    setDashboardState(() {
-                      isOnline = true;
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 18),
-                  ),
-                  child: const Text('GO ONLINE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                ),
-
-              if (isOnline)
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.green, width: 2),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text('Incoming Ride Request', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Pickup: Westlands\nDestination: CBD\nEstimated Fare: KES 280',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () {
-                                setDashboardState(() {
-                                  isOnline = false;
-                                });
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Request declined')),
-                                );
-                              },
-                              child: const Text('DECLINE'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                setDashboardState(() {
-                                  isOnline = false;
-                                });
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Ride accepted!')),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                              child: const Text('ACCEPT', style: TextStyle(color: Colors.white)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
     );
   }
 
