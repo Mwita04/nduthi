@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/presentation/auth_provider.dart';
+import '../../driver/presentation/driver_home_screen.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'widgets/profile_tab.dart';
 import 'widgets/rider_map_view.dart';
@@ -41,6 +43,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_currentIndex == 2) {
       return const ProfileTab();
     }
+    final role = ref.watch(userRoleProvider);
+    if (role == 'driver') {
+      return const DriverHomeScreen();
+    }
+
     return const RiderMapView();
   }
 }

@@ -5,7 +5,10 @@ class UserRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Future<void> createUserProfile(UserModel user) async {
-    await _firestore.collection('users').doc(user.uid).set(user.toMap(), SetOptions(merge: true));
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .set(user.toMap(), SetOptions(merge: true));
   }
 
   Future<UserModel?> getUserProfile(String uid) async {
@@ -18,5 +21,10 @@ class UserRepository {
 
   Future<void> updateUserRole(String uid, String role) async {
     await _firestore.collection('users').doc(uid).update({'role': role});
+  }
+
+  Future<void> updateFcmToken(String uid, String? token) async {
+    if (token == null) return;
+    await _firestore.collection('users').doc(uid).update({'fcmToken': token});
   }
 }

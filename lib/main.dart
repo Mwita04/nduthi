@@ -1,18 +1,20 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'features/auth/presentation/auth_wrapper.dart';
+import 'core/router/app_router.dart';
+import 'core/services/fcm_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    await FcmService.initialize();
   } catch (e) {
-    debugPrint('Firebase init error: $e');
+    debugPrint('Initialization error: $e');
   }
 
   runApp(
@@ -22,12 +24,14 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(appRouterProvider);
+
+    return MaterialApp.router(
       title: 'Nduthi',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -35,7 +39,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
       ),
-      home: const AuthWrapper(),
+      routerConfig: router,
     );
   }
 }

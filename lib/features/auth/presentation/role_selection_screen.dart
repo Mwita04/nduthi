@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'auth_provider.dart';
+import '../../../core/services/fcm_service.dart';
 
 class RoleSelectionScreen extends ConsumerWidget {
   const RoleSelectionScreen({super.key});
@@ -36,7 +37,6 @@ class RoleSelectionScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 48),
-
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -45,7 +45,9 @@ class RoleSelectionScreen extends ConsumerWidget {
                 ),
                 onPressed: () {
                   if (user != null) {
-                    ref.read(userRepositoryProvider).updateUserRole(user.uid, 'rider');
+                    ref
+                        .read(userRepositoryProvider)
+                        .updateUserRole(user.uid, 'rider');
                   }
                 },
                 child: const Text(
@@ -53,29 +55,37 @@ class RoleSelectionScreen extends ConsumerWidget {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
-
               const SizedBox(height: 16),
-
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   side: const BorderSide(color: Colors.green, width: 2),
                 ),
-                onPressed: () {
-                  if (user != null) {
-                    ref.read(userRepositoryProvider).updateUserRole(user.uid, 'driver');
-                  }
+                onPressed: () async {
+                  if (user == null) return;
+
+                  await ref
+                      .read(userRepositoryProvider)
+                      .updateUserRole(user.uid, 'driver');
+
+                  final token = await FcmService.getToken();
+                  await ref
+                      .read(userRepositoryProvider)
+                      .updateFcmToken(user.uid, token);
                 },
                 child: const Text(
                   'I am a Driver',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green),
                 ),
               ),
-              
               const SizedBox(height: 32),
               TextButton(
                 onPressed: () => FirebaseAuth.instance.signOut(),
-                child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                child:
+                    const Text('Logout', style: TextStyle(color: Colors.red)),
               ),
             ],
           ),

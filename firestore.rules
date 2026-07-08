@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection: owners can read and update their profile; creation must match authenticated uid.
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.uid
+        && request.resource.data.email is string;
+
+      allow update: if request.auth != null && request.auth.uid == userId;
+
+      allow delete: if false;
+    }
+
+    // Rides collection: passengers create rides; drivers accept and update status.
+    match /rides/{rideId} {
+      allow read: if request.auth != null && (
+        resource.data.passengerId == request.auth.uid || resource.data.driverId == request.auth.uid
+      );
+
+      // Create: only authenticated passenger may create a ride with initial 'pending' status.
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.passengerId
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.passengerId is string;
+
+      // Update rules:
+      // - Passenger can cancel a pending ride (set status -> 'cancelled').
+      // - A driver may accept a pending ride by setting driverId to their uid and status -> 'accepted'.
+      // - Once assigned, the assigned driver may update status to ongoing/completed/cancelled.
+      allow update: if request.auth != null && (
+        // Passenger cancels before assignment
+        (resource.data.passengerId == request.auth.uid
+          && request.resource.data.status == 'cancelled'
+          && resource.data.status == 'pending')
+
+        ||
+
+        // Driver accepts: must be setting themselves as driver and changing from pending -> accepted
+        (request.resource.data.driverId == request.auth.uid
+          && request.resource.data.status == 'accepted'
+          && resource.data.status == 'pending')
+
+        ||
+
+        // Assigned driver updates lifecycle
+        (resource.data.driverId == request.auth.uid
+          && request.resource.data.status in ['ongoing', 'completed', 'cancelled'])
+      );
+
+      allow delete: if false;
+    }
+  }
+}

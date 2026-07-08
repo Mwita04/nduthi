@@ -3,25 +3,34 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../../core/constants/app_constants.dart';
 
+enum LocationPermissionStatus {
+  loading,
+  ready,
+  serviceDisabled,
+  denied,
+  deniedForever,
+  failed,
+}
+
 class LocationState {
   final LatLng position;
-  final bool isLoading;
+  final LocationPermissionStatus permissionStatus;
   final String error;
 
   LocationState({
     required this.position,
-    this.isLoading = false,
+    this.permissionStatus = LocationPermissionStatus.loading,
     this.error = '',
   });
 
   LocationState copyWith({
     LatLng? position,
-    bool? isLoading,
+    LocationPermissionStatus? permissionStatus,
     String? error,
   }) {
     return LocationState(
       position: position ?? this.position,
-      isLoading: isLoading ?? this.isLoading,
+      permissionStatus: permissionStatus ?? this.permissionStatus,
       error: error ?? this.error,
     );
   }
@@ -32,36 +41,73 @@ final locationProvider = StateNotifierProvider<LocationNotifier, LocationState>(
 });
 
 class LocationNotifier extends StateNotifier<LocationState> {
-  LocationNotifier() : super(LocationState(position: AppConstants.defaultLocation, isLoading: true)) {
+  LocationNotifier()
+      : super(LocationState(
+          position: AppConstants.defaultLocation,
+          permissionStatus: LocationPermissionStatus.loading,
+        )) {
     determinePosition();
   }
 
   Future<void> determinePosition() async {
-    state = state.copyWith(isLoading: true, error: '');
+    state = state.copyWith(permissionStatus: LocationPermissionStatus.loading, error: '');
 
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        state = state.copyWith(isLoading: false, error: 'Please enable location services.');
+        state = state.copyWith(
+          permissionStatus: LocationPermissionStatus.serviceDisabled,
+          error: 'Location services are disabled. Please enable them.',
+        );
         return;
       }
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        state = state.copyWith(isLoading: false, error: 'Location permission is required.');
-        return;
-      }
+      final permission = await Geolocator.checkPermission();
+      await _handlePermission(permission);
+    } catch (e) {
+      state = state.copyWith(
+        permissionStatus: LocationPermissionStatus.failed,
+        error: 'Failed to get location. Please try again.',
+      );
+    }
+  }
 
-      Position position = await Geolocator.getCurrentPosition();
+  Future<void> requestLocationPermission() async {
+    state = state.copyWith(permissionStatus: LocationPermissionStatus.loading, error: '');
+
+    final permission = await Geolocator.requestPermission();
+    await _handlePermission(permission);
+  }
+
+  Future<void> _handlePermission(LocationPermission permission) async {
+    if (permission == LocationPermission.denied) {
+      state = state.copyWith(
+        permissionStatus: LocationPermissionStatus.denied,
+        error: 'Location permission is required to show the map.',
+      );
+      return;
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      state = state.copyWith(
+        permissionStatus: LocationPermissionStatus.deniedForever,
+        error: 'Location permission is permanently denied. Open app settings to allow it.',
+      );
+      return;
+    }
+
+    if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+      final position = await Geolocator.getCurrentPosition();
       state = state.copyWith(
         position: LatLng(position.latitude, position.longitude),
-        isLoading: false,
+        permissionStatus: LocationPermissionStatus.ready,
       );
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: 'Failed to get location.');
+      return;
     }
+
+    state = state.copyWith(
+      permissionStatus: LocationPermissionStatus.failed,
+      error: 'Unable to acquire location permission.',
+    );
   }
 }
